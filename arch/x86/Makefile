@@ -147,6 +147,16 @@ else
         cflags-$(CONFIG_MCANNONLAKE) += $(call cc-option,-march=cannonlake,$(call cc-option,-mtune=cannonlake))
         cflags-$(CONFIG_MICELAKE) += $(call cc-option,-march=icelake,$(call cc-option,-mtune=icelake))
         cflags-$(CONFIG_GENERIC_CPU) += $(call cc-option,-mtune=generic)
+        cflags-$(CONFIG_MINTEL) += $(call cc-option,-mtune=intel)
+        cflags-$(CONFIG_MINTEL) += $(call cc-option,-mcx16)
+        cflags-$(CONFIG_MINTEL) += $(call cc-option,-mfxsr)
+        cflags-$(CONFIG_MINTEL) += $(call cc-option,-msahf)
+        cflags-$(CONFIG_MINTEL) += $(call cc-option,-malign-data=cacheline)
+        cflags-$(CONFIG_MINTEL) += $(call cc-option,-falign-functions=64)
+        cflags-$(CONFIG_MINTEL) += $(call cc-option,-flimit-function-alignment)
+        cflags-$(CONFIG_MINTEL) += $(call cc-option,--param l1-cache-size=32)
+        cflags-$(CONFIG_MINTEL) += $(call cc-option,--param l1-cache-line-size=64)
+
         KBUILD_CFLAGS += $(cflags-y)
 
         KBUILD_CFLAGS += -mno-red-zone
