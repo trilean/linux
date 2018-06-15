@@ -2296,6 +2296,19 @@ generic_make_request_checks(struct bio *bio)
 		}
 	}
 
+	/*
+	 * Block write, discard, erase, flush, zone reset commands going to a
+	 * read-only device. We do this because kernel drivers often lack
+	 * necessary checks and send these commands to read-only block devices.
+	 */
+	if (unlikely((bio_op(bio) != REQ_OP_READ)
+			&& (bio_op(bio) != REQ_OP_ZONE_REPORT)
+			&& get_disk_ro(bio->bi_disk))) {
+		pr_warn("unexpected write command to %s blocked\n",
+			bio_devname(bio, b));
+		goto end_io;
+	}
+
 	switch (bio_op(bio)) {
 	case REQ_OP_DISCARD:
 		if (!blk_queue_discard(q))
