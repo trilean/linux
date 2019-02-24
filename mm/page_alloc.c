@@ -64,6 +64,8 @@
 #include <linux/page_owner.h>
 #include <linux/kthread.h>
 #include <linux/memcontrol.h>
+#include <linux/vs_base.h>
+#include <linux/vs_limit.h>
 
 #include <asm/sections.h>
 #include <asm/tlbflush.h>
@@ -4188,6 +4190,9 @@ void si_meminfo(struct sysinfo *val)
 	val->totalhigh = totalhigh_pages;
 	val->freehigh = nr_free_highpages();
 	val->mem_unit = PAGE_SIZE;
+
+	if (vx_flags(VXF_VIRT_MEM, 0))
+		vx_vsi_meminfo(val);
 }
 
 EXPORT_SYMBOL(si_meminfo);
@@ -4222,6 +4227,9 @@ void si_meminfo_node(struct sysinfo *val, int nid)
 	val->freehigh = free_highpages;
 #endif
 	val->mem_unit = PAGE_SIZE;
+
+	if (vx_flags(VXF_VIRT_MEM, 0))
+		vx_vsi_meminfo(val);
 }
 #endif
 

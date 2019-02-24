@@ -45,6 +45,7 @@
 #include <linux/utsname.h>
 #include <linux/ctype.h>
 #include <linux/uio.h>
+#include <linux/vs_cvirt.h>
 
 #include <asm/uaccess.h>
 #include <asm/sections.h>
@@ -612,7 +613,7 @@ int check_syslog_permissions(int type, int source)
 		goto ok;
 
 	if (syslog_action_restricted(type)) {
-		if (capable(CAP_SYSLOG))
+		if (vx_capable(CAP_SYSLOG, VXC_SYSLOG))
 			goto ok;
 		/*
 		 * For historical reasons, accept CAP_SYS_ADMIN too, with
@@ -1437,12 +1438,9 @@ int do_syslog(int type, char __user *buf, int len, int source)
 	if (error)
 		goto out;
 
-	switch (type) {
-	case SYSLOG_ACTION_CLOSE:	/* Close log */
-		break;
-	case SYSLOG_ACTION_OPEN:	/* Open log */
-		break;
-	case SYSLOG_ACTION_READ:	/* Read from log */
+	if ((type == SYSLOG_ACTION_READ) ||
+	    (type == SYSLOG_ACTION_READ_ALL) ||
+	    (type == SYSLOG_ACTION_READ_CLEAR)) {
 		error = -EINVAL;
 		if (!buf || len < 0)
 			goto out;
@@ -1453,6 +1451,16 @@ int do_syslog(int type, char __user *buf, int len, int source)
 			error = -EFAULT;
 			goto out;
 		}
+	}
+	if (!vx_check(0, VS_ADMIN|VS_WATCH))
+		return vx_do_syslog(type, buf, len);
+
+	switch (type) {
+	case SYSLOG_ACTION_CLOSE:	/* Close log */
+		break;
+	case SYSLOG_ACTION_OPEN:	/* Open log */
+		break;
+	case SYSLOG_ACTION_READ:	/* Read from log */
 		error = wait_event_interruptible(log_wait,
 						 syslog_seq != log_next_seq);
 		if (error)
@@ -1465,16 +1473,6 @@ int do_syslog(int type, char __user *buf, int len, int source)
 		/* FALL THRU */
 	/* Read last kernel messages */
 	case SYSLOG_ACTION_READ_ALL:
-		error = -EINVAL;
-		if (!buf || len < 0)
-			goto out;
-		error = 0;
-		if (!len)
-			goto out;
-		if (!access_ok(VERIFY_WRITE, buf, len)) {
-			error = -EFAULT;
-			goto out;
-		}
 		error = syslog_print_all(buf, len, clear);
 		break;
 	/* Clear ring buffer */

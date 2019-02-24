@@ -31,6 +31,8 @@
 
 #include <linux/inet.h>
 #include <linux/stddef.h>
+#include <linux/vs_network.h>
+#include <linux/vs_inet.h>
 
 #include <linux/inet_diag.h>
 #include <linux/sock_diag.h>
@@ -87,8 +89,8 @@ void inet_diag_msg_common_fill(struct inet_diag_msg *r, struct sock *sk)
 	memset(&r->id.idiag_src, 0, sizeof(r->id.idiag_src));
 	memset(&r->id.idiag_dst, 0, sizeof(r->id.idiag_dst));
 
-	r->id.idiag_src[0] = sk->sk_rcv_saddr;
-	r->id.idiag_dst[0] = sk->sk_daddr;
+	r->id.idiag_src[0] = nx_map_sock_lback(sk->sk_nx_info, sk->sk_rcv_saddr);
+	r->id.idiag_dst[0] = nx_map_sock_lback(sk->sk_nx_info, sk->sk_daddr);
 	}
 }
 EXPORT_SYMBOL_GPL(inet_diag_msg_common_fill);
@@ -879,6 +881,9 @@ void inet_diag_dump_icsk(struct inet_hashinfo *hashinfo, struct sk_buff *skb,
 				if (!net_eq(sock_net(sk), net))
 					continue;
 
+				if (!nx_check(sk->sk_nid, VS_WATCH_P | VS_IDENT))
+					continue;
+
 				if (num < s_num) {
 					num++;
 					continue;
@@ -940,6 +945,8 @@ skip_listen_ht:
 			int state, res;
 
 			if (!net_eq(sock_net(sk), net))
+				continue;
+			if (!nx_check(sk->sk_nid, VS_WATCH_P | VS_IDENT))
 				continue;
 			if (num < s_num)
 				goto next_normal;

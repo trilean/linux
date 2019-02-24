@@ -135,6 +135,10 @@
 
 #include <linux/filter.h>
 #include <net/sock_reuseport.h>
+#include <linux/vs_socket.h>
+#include <linux/vs_limit.h>
+#include <linux/vs_context.h>
+#include <linux/vs_network.h>
 
 #include <trace/events/sock.h>
 
@@ -1340,6 +1344,8 @@ static struct sock *sk_prot_alloc(struct proto *prot, gfp_t priority,
 			goto out_free_sec;
 		sk_tx_queue_clear(sk);
 	}
+		sock_vx_init(sk);
+		sock_nx_init(sk);
 
 	return sk;
 
@@ -1445,6 +1451,11 @@ static void __sk_destruct(struct rcu_head *head)
 	put_pid(sk->sk_peer_pid);
 	if (likely(sk->sk_net_refcnt))
 		put_net(sock_net(sk));
+	vx_sock_dec(sk);
+	clr_vx_info(&sk->sk_vx_info);
+	sk->sk_xid = -1;
+	clr_nx_info(&sk->sk_nx_info);
+	sk->sk_nid = -1;
 	sk_prot_free(sk->sk_prot_creator, sk);
 }
 
@@ -1499,6 +1510,8 @@ struct sock *sk_clone_lock(const struct sock *sk, const gfp_t priority)
 		/* SANITY */
 		if (likely(newsk->sk_net_refcnt))
 			get_net(sock_net(newsk));
+		sock_vx_init(newsk);
+		sock_nx_init(newsk);
 		sk_node_init(&newsk->sk_node);
 		sock_lock_init(newsk);
 		bh_lock_sock(newsk);
@@ -1568,6 +1581,12 @@ struct sock *sk_clone_lock(const struct sock *sk, const gfp_t priority)
 		 */
 		smp_wmb();
 		atomic_set(&newsk->sk_refcnt, 2);
+
+		set_vx_info(&newsk->sk_vx_info, sk->sk_vx_info);
+		newsk->sk_xid = sk->sk_xid;
+		vx_sock_inc(newsk);
+		set_nx_info(&newsk->sk_nx_info, sk->sk_nx_info);
+		newsk->sk_nid = sk->sk_nid;
 
 		/*
 		 * Increment the counter in the same struct proto as the master
@@ -2471,6 +2490,12 @@ void sock_init_data(struct socket *sock, struct sock *sk)
 #if BITS_PER_LONG==32
 	seqlock_init(&sk->sk_stamp_seq);
 #endif
+
+	set_vx_info(&sk->sk_vx_info, current_vx_info());
+	sk->sk_xid = vx_current_xid();
+	vx_sock_inc(sk);
+	set_nx_info(&sk->sk_nx_info, current_nx_info());
+	sk->sk_nid = nx_current_nid();
 
 #ifdef CONFIG_NET_RX_BUSY_POLL
 	sk->sk_napi_id		=	0;

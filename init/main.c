@@ -82,6 +82,7 @@
 #include <linux/io.h>
 #include <linux/kaiser.h>
 #include <linux/cache.h>
+#include <linux/vserver/percpu.h>
 
 #include <asm/io.h>
 #include <asm/bugs.h>

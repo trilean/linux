@@ -56,6 +56,7 @@
 #include <linux/nospec.h>
 
 #include <linux/kmsg_dump.h>
+#include <linux/vs_pid.h>
 /* Move somewhere else to avoid recompiling? */
 #include <generated/utsrelease.h>
 
@@ -159,7 +160,10 @@ static int set_one_prio(struct task_struct *p, int niceval, int error)
 		goto out;
 	}
 	if (niceval < task_nice(p) && !can_nice(p, niceval)) {
-		error = -EACCES;
+		if (vx_flags(VXF_IGNEG_NICE, 0))
+			error = 0;
+		else
+			error = -EACCES;
 		goto out;
 	}
 	no_nice = security_task_setnice(p, niceval);
@@ -210,6 +214,8 @@ SYSCALL_DEFINE3(setpriority, int, which, int, who, int, niceval)
 		else
 			pgrp = task_pgrp(current);
 		do_each_pid_thread(pgrp, PIDTYPE_PGID, p) {
+			if (!vx_check(p->xid, VS_ADMIN_P | VS_IDENT))
+				continue;
 			error = set_one_prio(p, niceval, error);
 		} while_each_pid_thread(pgrp, PIDTYPE_PGID, p);
 		break;
@@ -276,6 +282,8 @@ SYSCALL_DEFINE2(getpriority, int, which, int, who)
 		else
 			pgrp = task_pgrp(current);
 		do_each_pid_thread(pgrp, PIDTYPE_PGID, p) {
+			if (!vx_check(p->xid, VS_ADMIN_P | VS_IDENT))
+				continue;
 			niceval = nice_to_rlimit(task_nice(p));
 			if (niceval > retval)
 				retval = niceval;
@@ -292,6 +300,8 @@ SYSCALL_DEFINE2(getpriority, int, which, int, who)
 				goto out_unlock;	/* No processes for this user */
 		}
 		do_each_thread(g, p) {
+			if (!vx_check(p->xid, VS_ADMIN_P | VS_IDENT))
+				continue;
 			if (uid_eq(task_uid(p), uid) && task_pid_vnr(p)) {
 				niceval = nice_to_rlimit(task_nice(p));
 				if (niceval > retval)
@@ -1211,7 +1221,8 @@ SYSCALL_DEFINE2(sethostname, char __user *, name, int, len)
 	int errno;
 	char tmp[__NEW_UTS_LEN];
 
-	if (!ns_capable(current->nsproxy->uts_ns->user_ns, CAP_SYS_ADMIN))
+	if (!vx_ns_capable(current->nsproxy->uts_ns->user_ns,
+		CAP_SYS_ADMIN, VXC_SET_UTSNAME))
 		return -EPERM;
 
 	if (len < 0 || len > __NEW_UTS_LEN)
@@ -1264,7 +1275,8 @@ SYSCALL_DEFINE2(setdomainname, char __user *, name, int, len)
 	int errno;
 	char tmp[__NEW_UTS_LEN];
 
-	if (!ns_capable(current->nsproxy->uts_ns->user_ns, CAP_SYS_ADMIN))
+	if (!vx_ns_capable(current->nsproxy->uts_ns->user_ns,
+		CAP_SYS_ADMIN, VXC_SET_UTSNAME))
 		return -EPERM;
 	if (len < 0 || len > __NEW_UTS_LEN)
 		return -EINVAL;
@@ -1384,7 +1396,7 @@ int do_prlimit(struct task_struct *tsk, unsigned int resource,
 		/* Keep the capable check against init_user_ns until
 		   cgroups can contain all limits */
 		if (new_rlim->rlim_max > rlim->rlim_max &&
-				!capable(CAP_SYS_RESOURCE))
+			!vx_capable(CAP_SYS_RESOURCE, VXC_SET_RLIMIT))
 			retval = -EPERM;
 		if (!retval)
 			retval = security_task_setrlimit(tsk->group_leader,
@@ -1437,7 +1449,8 @@ static int check_prlimit_permission(struct task_struct *task)
 	    gid_eq(cred->gid, tcred->sgid) &&
 	    gid_eq(cred->gid, tcred->gid))
 		return 0;
-	if (ns_capable(tcred->user_ns, CAP_SYS_RESOURCE))
+	if (vx_ns_capable(tcred->user_ns,
+		CAP_SYS_RESOURCE, VXC_SET_RLIMIT))
 		return 0;
 
 	return -EPERM;

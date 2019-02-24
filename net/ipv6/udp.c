@@ -135,6 +135,10 @@ static int compute_score(struct sock *sk, struct net *net,
 		if (inet->inet_dport != sport)
 			return -1;
 		score++;
+		} else {
+			/* block non nx_info ips */
+			if (!v6_addr_in_nx_info(sk->sk_nx_info, daddr, -1))
+				return -1;
 	}
 
 	if (!ipv6_addr_any(&sk->sk_v6_rcv_saddr)) {

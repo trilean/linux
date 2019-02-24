@@ -200,7 +200,7 @@
 #define __NR_clock_gettime	260
 #define __NR_clock_getres	261
 #define __NR_clock_nanosleep	262
-/* Number 263 is reserved for vserver */
+#define __NR_vserver		263
 #define __NR_statfs64		265
 #define __NR_fstatfs64		266
 #define __NR_remap_file_pages	267

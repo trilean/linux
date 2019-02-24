@@ -1091,6 +1091,8 @@ source "lib/Kconfig"
 
 source "arch/powerpc/Kconfig.debug"
 
+source "kernel/vserver/Kconfig"
+
 source "security/Kconfig"
 
 source "crypto/Kconfig"

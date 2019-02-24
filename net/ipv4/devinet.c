@@ -546,6 +546,7 @@ struct in_device *inetdev_by_index(struct net *net, int ifindex)
 }
 EXPORT_SYMBOL(inetdev_by_index);
 
+
 /* Called only from RTNL semaphored context. No locks. */
 
 struct in_ifaddr *inet_ifa_byprefix(struct in_device *in_dev, __be32 prefix,
@@ -1000,6 +1001,8 @@ int devinet_ioctl(struct net *net, unsigned int cmd, void __user *arg)
 
 	in_dev = __in_dev_get_rtnl(dev);
 	if (in_dev) {
+		struct nx_info *nxi = current_nx_info();
+
 		if (tryaddrmatch) {
 			/* Matthias Andree */
 			/* compare label and address (4.4BSD style) */
@@ -1008,6 +1011,8 @@ int devinet_ioctl(struct net *net, unsigned int cmd, void __user *arg)
 			   This is checked above. */
 			for (ifap = &in_dev->ifa_list; (ifa = *ifap) != NULL;
 			     ifap = &ifa->ifa_next) {
+				if (!nx_v4_ifa_visible(nxi, ifa))
+					continue;
 				if (!strcmp(ifr.ifr_name, ifa->ifa_label) &&
 				    sin_orig.sin_addr.s_addr ==
 							ifa->ifa_local) {
@@ -1020,9 +1025,12 @@ int devinet_ioctl(struct net *net, unsigned int cmd, void __user *arg)
 		   comparing just the label */
 		if (!ifa) {
 			for (ifap = &in_dev->ifa_list; (ifa = *ifap) != NULL;
-			     ifap = &ifa->ifa_next)
+			     ifap = &ifa->ifa_next) {
+				if (!nx_v4_ifa_visible(nxi, ifa))
+					continue;
 				if (!strcmp(ifr.ifr_name, ifa->ifa_label))
 					break;
+			}
 		}
 	}
 
@@ -1176,6 +1184,8 @@ static int inet_gifconf(struct net_device *dev, char __user *buf, int len)
 		goto out;
 
 	for (ifa = in_dev->ifa_list; ifa; ifa = ifa->ifa_next) {
+		if (!nx_v4_ifa_visible(current_nx_info(), ifa))
+			continue;
 		if (!buf) {
 			done += sizeof(ifr);
 			continue;
@@ -1603,6 +1613,7 @@ static int inet_dump_ifaddr(struct sk_buff *skb, struct netlink_callback *cb)
 	struct net_device *dev;
 	struct in_device *in_dev;
 	struct in_ifaddr *ifa;
+	struct sock *sk = skb->sk;
 	struct hlist_head *head;
 
 	s_h = cb->args[0];
@@ -1626,6 +1637,8 @@ static int inet_dump_ifaddr(struct sk_buff *skb, struct netlink_callback *cb)
 
 			for (ifa = in_dev->ifa_list, ip_idx = 0; ifa;
 			     ifa = ifa->ifa_next, ip_idx++) {
+			if (sk && !nx_v4_ifa_visible(sk->sk_nx_info, ifa))
+				continue;
 				if (ip_idx < s_ip_idx)
 					continue;
 				if (inet_fill_ifaddr(skb, ifa,
