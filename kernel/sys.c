@@ -2339,7 +2339,13 @@ static int do_sysinfo(struct sysinfo *info)
 
 	get_avenrun(info->loads, 0, SI_LOAD_SHIFT - FSHIFT);
 
-	info->procs = nr_threads;
+		// if in vserver guest virtualize the result
+		if (vx_check(0, VS_ADMIN|VS_WATCH)) {
+				info->procs = nr_threads;
+		} else {
+				struct vx_info *vxi = current_vx_info();
+				info->procs = atomic_read(&vxi->cvirt.nr_threads);
+		}
 
 	si_meminfo(info);
 	si_swapinfo(info);

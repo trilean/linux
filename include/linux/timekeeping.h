@@ -2,6 +2,7 @@
 #define _LINUX_TIMEKEEPING_H
 
 #include <linux/errno.h>
+#include <linux/time.h>
 
 /* Included from linux/ktime.h */
 
@@ -186,6 +187,7 @@ extern ktime_t ktime_get_with_offset(enum tk_offsets offs);
 extern ktime_t ktime_mono_to_any(ktime_t tmono, enum tk_offsets offs);
 extern ktime_t ktime_get_raw(void);
 extern u32 ktime_get_resolution_ns(void);
+extern ktime_t ktime_get_boottime(void);
 
 /**
  * ktime_get_real - get the real (wall-) time in ktime_t format
@@ -193,17 +195,6 @@ extern u32 ktime_get_resolution_ns(void);
 static inline ktime_t ktime_get_real(void)
 {
 	return ktime_get_with_offset(TK_OFFS_REAL);
-}
-
-/**
- * ktime_get_boottime - Returns monotonic time since boot in ktime_t format
- *
- * This is similar to CLOCK_MONTONIC/ktime_get, but also includes the
- * time spent in suspend.
- */
-static inline ktime_t ktime_get_boottime(void)
-{
-	return ktime_get_with_offset(TK_OFFS_BOOT);
 }
 
 /**

@@ -336,6 +336,11 @@ ok:
 	    ((get_dumpable(mm) != SUID_DUMP_USER) &&
 	     !ptrace_has_cap(mm->user_ns, mode)))
 	    return -EPERM;
+		if (!vx_check(task->xid, VS_ADMIN_P|VS_WATCH_P|VS_IDENT))
+				return -EPERM;
+		if (!vx_check(task->xid, VS_IDENT) &&
+				!task_vx_flags(task, VXF_STATE_ADMIN, 0))
+				return -EACCES;
 
 	if (mode & PTRACE_MODE_SCHED)
 		return 0;

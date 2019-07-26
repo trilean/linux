@@ -747,6 +747,24 @@ u32 ktime_get_resolution_ns(void)
 }
 EXPORT_SYMBOL_GPL(ktime_get_resolution_ns);
 
+/**
+* ktime_get_boottime - Returns monotonic time since boot in ktime_t format
+*
+* This is similar to CLOCK_MONTONIC/ktime_get, but also includes the
+* time spent in suspend.
+*/
+ktime_t ktime_get_boottime(void)
+{
+		ktime_t boottime = ktime_get_with_offset(TK_OFFS_BOOT);
+		if (vx_flags(VXF_VIRT_UPTIME, 0) && !vx_check(0, VS_ADMIN|VS_WATCH)  ) {
+				struct vx_info *vxi = current_vx_info();
+				ktime_t bias_uptime = timespec_to_ktime(vxi->cvirt.bias_uptime);
+				boottime = ktime_sub(boottime, bias_uptime);
+		}
+		return boottime;
+}
+EXPORT_SYMBOL_GPL(ktime_get_boottime);
+
 static ktime_t *offsets[TK_OFFS_MAX] = {
 	[TK_OFFS_REAL]	= &tk_core.timekeeper.offs_real,
 	[TK_OFFS_BOOT]	= &tk_core.timekeeper.offs_boot,
@@ -2165,6 +2183,8 @@ void getboottime64(struct timespec64 *ts)
 	ktime_t t = ktime_sub(tk->offs_real, tk->offs_boot);
 
 	*ts = ktime_to_timespec64(t);
+	if (vx_flags(VXF_VIRT_UPTIME, 0))
+		vx_vsi_boottime64(ts);
 }
 EXPORT_SYMBOL_GPL(getboottime64);
 
